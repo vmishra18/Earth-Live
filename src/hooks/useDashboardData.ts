@@ -161,5 +161,6 @@ export function useDashboardData({ dataMode, refreshRate }: UseDashboardDataOpti
     errorMessage,
     isDegraded,
     hasLiveFeed,
+    refreshDashboard: query.refetch,
   };
 }

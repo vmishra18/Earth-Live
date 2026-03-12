@@ -8,6 +8,7 @@ type TopBarProps = {
   sourceStatus: DataSourceStatus;
   categoryCountLabel: string;
   isRefreshing?: boolean;
+  onRefresh: () => void;
   onOpenSettings: () => void;
   theme: AppThemePalette;
 };
@@ -17,6 +18,7 @@ export function TopBar({
   sourceStatus,
   categoryCountLabel,
   isRefreshing = false,
+  onRefresh,
   onOpenSettings,
   theme,
 }: TopBarProps) {
@@ -39,9 +41,22 @@ export function TopBar({
           <Text style={styles.topBarLiveText}>{sourceStatus.label}</Text>
           <Text style={styles.topBarLiveSubtext}>{isRefreshing ? 'syncing' : lastUpdated}</Text>
         </View>
-        <Pressable onPress={onOpenSettings} style={[styles.settingsButton, { backgroundColor: theme.accentSoft }]}>
-          <Text style={styles.settingsText}>Settings</Text>
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable
+            onPress={onRefresh}
+            disabled={isRefreshing}
+            style={[
+              styles.refreshButton,
+              { backgroundColor: theme.surfaceSoft },
+              isRefreshing && styles.refreshButtonDisabled,
+            ]}
+          >
+            <Text style={styles.refreshText}>{isRefreshing ? 'Refreshing' : 'Refresh'}</Text>
+          </Pressable>
+          <Pressable onPress={onOpenSettings} style={[styles.settingsButton, { backgroundColor: theme.accentSoft }]}>
+            <Text style={styles.settingsText}>Settings</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -72,6 +87,10 @@ const createStyles = (theme: AppThemePalette) =>
     },
     rightStack: {
       alignItems: 'flex-end',
+      gap: spacing.xs,
+    },
+    actionRow: {
+      flexDirection: 'row',
       gap: spacing.xs,
     },
     topBarRight: {
@@ -114,5 +133,22 @@ const createStyles = (theme: AppThemePalette) =>
       color: theme.text,
       fontSize: typeScale.meta,
       fontWeight: '800',
+    },
+    refreshButton: {
+      minWidth: 92,
+      borderRadius: radii.md,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    refreshButtonDisabled: {
+      opacity: 0.75,
+    },
+    refreshText: {
+      color: theme.text,
+      fontSize: typeScale.meta,
+      fontWeight: '700',
     },
   });

@@ -67,6 +67,18 @@ export function useDashboardControls() {
     setSettings((current) => ({ ...current, ...next }));
   };
 
+  const resetAlertFilters = () => {
+    selectionHaptic();
+    setSeverityFilter('all');
+    setActiveCategories(allCategories);
+  };
+
+  const focusCriticalAlerts = () => {
+    selectionHaptic();
+    setSeverityFilter('critical');
+    setActiveCategories(allCategories);
+  };
+
   const openEvent = (event: EventItem) => {
     impactHaptic();
     setSelectedEvent(event);
@@ -99,6 +111,8 @@ export function useDashboardControls() {
     toggleLayer,
     toggleWatch,
     updateSettings,
+    resetAlertFilters,
+    focusCriticalAlerts,
     openEvent,
     openRegion,
   };
