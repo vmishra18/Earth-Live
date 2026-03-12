@@ -4,6 +4,16 @@ Live Earth Dashboard is an Expo app built around the idea of tracking global act
 
 The app includes an overview screen, a world map, an alerts screen, and a replay screen for recent snapshots.
 
+<img width="250" height="250" alt="Overview-Dark" src="https://github.com/user-attachments/assets/49996614-a8e8-4b29-b554-b05f45332925" />
+
+<img width="250" height="250" alt="Overview-light" src="https://github.com/user-attachments/assets/bbc4df93-c7b7-4bbd-8c7d-214615fd4d4a" />
+
+<img width="250" height="250" alt="Alert-Screen" src="https://github.com/user-attachments/assets/1432f78a-b9bd-4cb3-afff-421981c61ac1" />
+
+<img width="250" height="250" alt="Map-Screen" src="https://github.com/user-attachments/assets/6f3dbbed-2f0d-4c51-b922-bcebd35915aa" />
+
+<img width="250" height="250" alt="Replay-Screen" src="https://github.com/user-attachments/assets/0b3b1542-54d1-4170-932f-33e597a58fce" />
+
 ## What the app does
 
 - Shows a dashboard with key metrics, trends, and region highlights
