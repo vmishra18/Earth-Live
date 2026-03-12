@@ -50,6 +50,7 @@ function AppContent() {
     isError,
     errorMessage,
     isDegraded,
+    refreshDashboard,
   } = useDashboardData({
     dataMode: controls.settings.dataMode,
     refreshRate: effectiveRefreshRate,
@@ -124,6 +125,8 @@ function AppContent() {
             onOpenRegion={handleOpenRegion}
             onOpenFilters={() => controls.setFiltersVisible(true)}
             onCloseFilters={() => controls.setFiltersVisible(false)}
+            onResetFilters={controls.resetAlertFilters}
+            onFocusCritical={controls.focusCriticalAlerts}
           />
         );
       case 'replay':
@@ -174,6 +177,10 @@ function AppContent() {
               isRefreshing={isRefreshing}
               theme={theme}
               categoryCountLabel={controls.categoryCountLabel}
+              onRefresh={() => {
+                impactHaptic();
+                void refreshDashboard();
+              }}
               onOpenSettings={() => controls.setSettingsVisible(true)}
             />
             {isError ? (

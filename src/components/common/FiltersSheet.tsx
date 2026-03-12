@@ -10,6 +10,8 @@ type FiltersSheetProps = {
   activeCategories: FeedCategory[];
   severityFilter: SeverityFilter;
   onClose: () => void;
+  onResetFilters: () => void;
+  onFocusCritical: () => void;
   onToggleCategory: (category: FeedCategory) => void;
   onSetSeverityFilter: (value: SeverityFilter) => void;
 };
@@ -28,6 +30,8 @@ export function FiltersSheet({
   activeCategories,
   severityFilter,
   onClose,
+  onResetFilters,
+  onFocusCritical,
   onToggleCategory,
   onSetSeverityFilter,
 }: FiltersSheetProps) {
@@ -49,6 +53,15 @@ export function FiltersSheet({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <View style={styles.quickActions}>
+              <Pressable onPress={onFocusCritical} style={styles.quickActionButton}>
+                <Text style={styles.quickActionText}>Critical Only</Text>
+              </Pressable>
+              <Pressable onPress={onResetFilters} style={styles.quickActionButton}>
+                <Text style={styles.quickActionText}>Reset</Text>
+              </Pressable>
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.label}>Severity</Text>
               <SingleSelectChips<SeverityFilter>
@@ -121,6 +134,23 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
     content: {
       gap: spacing.lg,
       paddingBottom: spacing.lg,
+    },
+    quickActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    quickActionButton: {
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      backgroundColor: theme.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    quickActionText: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '700',
     },
     section: {
       gap: spacing.sm,

@@ -33,6 +33,8 @@ type AlertsScreenProps = {
   onOpenRegion: (region: string) => void;
   onOpenFilters: () => void;
   onCloseFilters: () => void;
+  onResetFilters: () => void;
+  onFocusCritical: () => void;
 };
 
 export function AlertsScreen({
@@ -51,6 +53,8 @@ export function AlertsScreen({
   onOpenRegion,
   onOpenFilters,
   onCloseFilters,
+  onResetFilters,
+  onFocusCritical,
 }: AlertsScreenProps) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
@@ -127,6 +131,8 @@ export function AlertsScreen({
         activeCategories={activeCategories}
         severityFilter={severityFilter}
         onClose={onCloseFilters}
+        onResetFilters={onResetFilters}
+        onFocusCritical={onFocusCritical}
         onToggleCategory={onToggleCategory}
         onSetSeverityFilter={onSetSeverityFilter}
       />
