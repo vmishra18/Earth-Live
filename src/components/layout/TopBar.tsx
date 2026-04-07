@@ -7,9 +7,12 @@ type TopBarProps = {
   lastUpdated: string;
   sourceStatus: DataSourceStatus;
   categoryCountLabel: string;
+  activeRegionFilter?: string | null;
+  isStale?: boolean;
   isRefreshing?: boolean;
   onRefresh: () => void;
   onOpenSettings: () => void;
+  onClearRegionFilter?: () => void;
   theme: AppThemePalette;
 };
 
@@ -17,9 +20,12 @@ export function TopBar({
   lastUpdated,
   sourceStatus,
   categoryCountLabel,
+  activeRegionFilter = null,
+  isStale = false,
   isRefreshing = false,
   onRefresh,
   onOpenSettings,
+  onClearRegionFilter,
   theme,
 }: TopBarProps) {
   const styles = createStyles(theme);
@@ -28,7 +34,7 @@ export function TopBar({
     <View style={styles.topBar}>
       <View>
         <Text style={styles.topBarTitle}>Earth Live</Text>
-        <Text style={styles.topBarSubtitle}>Global monitor</Text>
+        <Text style={styles.topBarSubtitle}>{activeRegionFilter ? `${activeRegionFilter} filter active` : 'Global monitor'}</Text>
       </View>
       <View style={styles.rightStack}>
         <View style={styles.topBarRight}>
@@ -39,9 +45,16 @@ export function TopBar({
             ]}
           />
           <Text style={styles.topBarLiveText}>{sourceStatus.label}</Text>
-          <Text style={styles.topBarLiveSubtext}>{isRefreshing ? 'syncing' : lastUpdated}</Text>
+          <Text style={styles.topBarLiveSubtext}>
+            {isRefreshing ? 'syncing' : isStale ? `stale · ${lastUpdated}` : lastUpdated}
+          </Text>
         </View>
         <View style={styles.actionRow}>
+          {activeRegionFilter ? (
+            <Pressable onPress={onClearRegionFilter} style={[styles.filterButton, { backgroundColor: theme.surfaceInset }]}>
+              <Text style={styles.filterText}>Clear Filter</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={onRefresh}
             disabled={isRefreshing}
@@ -133,6 +146,20 @@ const createStyles = (theme: AppThemePalette) =>
       color: theme.text,
       fontSize: typeScale.meta,
       fontWeight: '800',
+    },
+    filterButton: {
+      minWidth: 98,
+      borderRadius: radii.md,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    filterText: {
+      color: theme.text,
+      fontSize: typeScale.meta,
+      fontWeight: '700',
     },
     refreshButton: {
       minWidth: 92,

@@ -1,8 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import type { DashboardSnapshot, EventItem } from '../../data/liveEarth';
 import { shadows, spacing, type AppThemePalette } from '../../theme';
 import { deriveRegionDetail } from '../../utils/regions';
+import { deriveEventSourceMeta } from '../../utils/sourceStatus';
+import { SourceBadge } from './SourceBadge';
 
 type RegionDetailModalProps = {
   region: string | null;
@@ -27,6 +29,11 @@ export function RegionDetailModal({
 
   const detail = deriveRegionDetail(snapshot, region);
   const styles = createStyles(theme);
+  const handleShare = () => {
+    void Share.share({
+      message: `${detail.region}\nEvents: ${detail.relatedEvents.length}\nTimeline: ${detail.relatedTimeline.length}\nNodes: ${detail.relatedHotspots.length}`,
+    });
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -37,9 +44,14 @@ export function RegionDetailModal({
               <Text style={styles.eyebrow}>Region Focus</Text>
               <Text style={styles.title}>{detail.region}</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeText}>Back</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={handleShare} style={styles.closeButton}>
+                <Text style={styles.closeText}>Share</Text>
+              </Pressable>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.closeText}>Back</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.statRow}>
@@ -65,6 +77,7 @@ export function RegionDetailModal({
                   <Pressable key={event.id} onPress={() => onOpenEvent(event)} style={styles.eventCard}>
                     <Text style={styles.eventTitle}>{event.title}</Text>
                     <Text style={styles.eventSummary}>{event.summary}</Text>
+                    <SourceBadge meta={deriveEventSourceMeta(snapshot, event)} compact />
                     <Text style={styles.eventStat}>{event.stat}</Text>
                   </Pressable>
                 ))
@@ -118,6 +131,10 @@ const createStyles = (theme: AppThemePalette) =>
       justifyContent: 'space-between',
       alignItems: 'flex-start',
       gap: spacing.md,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
     },
     eyebrow: {
       color: theme.accent,

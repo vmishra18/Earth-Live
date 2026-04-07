@@ -114,6 +114,18 @@ export function useDashboardData({ dataMode, refreshRate }: UseDashboardDataOpti
                 mode: dataMode,
                 label: dataMode === 'live' ? 'LIVE FALLBACK' : 'AUTO DEMO',
                 detail: 'Live endpoints unavailable. Using generated telemetry cache.',
+                lastSuccessfulLiveAt: current.snapshot.sourceStatus.lastSuccessfulLiveAt,
+                categories: Object.fromEntries(
+                  Object.entries(nextBase.sourceStatus.categories).map(([category, value]) => [
+                    category,
+                    {
+                      ...value,
+                      status: 'fallback',
+                      detail: 'Live endpoints unavailable for this category.',
+                      updatedAt: Date.now(),
+                    },
+                  ])
+                ) as typeof nextBase.sourceStatus.categories,
               },
             };
           }
@@ -125,6 +137,18 @@ export function useDashboardData({ dataMode, refreshRate }: UseDashboardDataOpti
               mode: dataMode,
               label: dataMode === 'live' ? 'LIVE FALLBACK' : 'AUTO DEMO',
               detail: 'Live endpoints failed. Serving generated telemetry fallback.',
+              lastSuccessfulLiveAt: current.snapshot.sourceStatus.lastSuccessfulLiveAt,
+              categories: Object.fromEntries(
+                Object.entries(nextBase.sourceStatus.categories).map(([category, value]) => [
+                  category,
+                  {
+                    ...value,
+                    status: 'error',
+                    detail: 'Live request failed for this category.',
+                    updatedAt: Date.now(),
+                  },
+                ])
+              ) as typeof nextBase.sourceStatus.categories,
             },
           };
         }
@@ -147,6 +171,10 @@ export function useDashboardData({ dataMode, refreshRate }: UseDashboardDataOpti
     state.snapshot.sourceStatus.label.includes('FALLBACK') ||
     state.snapshot.sourceStatus.label.includes('DEMO');
   const hasLiveFeed = state.snapshot.sourceStatus.liveCategories.length > 0;
+  const liveAgeMs = state.snapshot.sourceStatus.lastSuccessfulLiveAt
+    ? Date.now() - state.snapshot.sourceStatus.lastSuccessfulLiveAt
+    : null;
+  const isStale = liveAgeMs != null && liveAgeMs > 1000 * 60 * 10;
   const isInitialLoading = !hydrated || (query.isPending && !query.data && !restoredCache);
   const errorMessage = query.error instanceof Error ? query.error.message : null;
 
@@ -161,6 +189,7 @@ export function useDashboardData({ dataMode, refreshRate }: UseDashboardDataOpti
     errorMessage,
     isDegraded,
     hasLiveFeed,
+    isStale,
     refreshDashboard: query.refetch,
   };
 }

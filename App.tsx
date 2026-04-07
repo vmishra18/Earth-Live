@@ -26,9 +26,12 @@ import { resolveAppTheme, spacing } from './src/theme';
 import { AlertsScreen } from './src/screens/AlertsScreen';
 import { GlobeScreen } from './src/screens/GlobeScreen';
 import { OverviewScreen } from './src/screens/OverviewScreen';
+import { RegionsScreen } from './src/screens/RegionsScreen';
 import { ReplayScreen } from './src/screens/ReplayScreen';
 import { impactHaptic, selectionHaptic } from './src/services/haptics';
 import { AppThemeContext } from './src/themeContext';
+import { filterHistoryByRegion, filterSnapshotByRegion, deriveRegionOptions } from './src/utils/regions';
+import { deriveEventSourceMeta } from './src/utils/sourceStatus';
 
 function ScreenHost({ children, opacity }: { children: React.ReactNode; opacity: Animated.Value }) {
   return <Animated.View style={[styles.screenHost, { opacity }]}>{children}</Animated.View>;
@@ -50,6 +53,7 @@ function AppContent() {
     isError,
     errorMessage,
     isDegraded,
+    isStale,
     refreshDashboard,
   } = useDashboardData({
     dataMode: controls.settings.dataMode,
@@ -63,14 +67,23 @@ function AppContent() {
   const { width } = useWindowDimensions();
 
   useAlertsRuntime({
-    notificationsEnabled: controls.settings.notificationsEnabled,
+    settings: controls.settings,
     alerts: snapshot.alerts,
     events: snapshot.events,
+    watchlist: controls.watchlist,
+    sourceStatus: snapshot.sourceStatus,
+    incidentRecords: controls.incidentRecords,
   });
 
   const stackHero = width < 430;
   const compactMetrics = width < 430;
   const globeSize = Math.max(240, Math.min(width - spacing.lg * 2 - 40, 320));
+  const scopedSnapshot = controls.regionFilter ? filterSnapshotByRegion(snapshot, controls.regionFilter) : snapshot;
+  const scopedPreviousSnapshot = controls.regionFilter
+    ? filterSnapshotByRegion(previousSnapshot, controls.regionFilter)
+    : previousSnapshot;
+  const scopedHistory = controls.regionFilter ? filterHistoryByRegion(history, controls.regionFilter) : history;
+  const availableRegions = deriveRegionOptions(snapshot, controls.watchlist);
   const selectedEventWatched = useMemo(
     () =>
       controls.selectedEvent
@@ -79,6 +92,9 @@ function AppContent() {
         : false,
     [controls.selectedEvent, controls.watchlist]
   );
+  const selectedIncidentRecord = controls.selectedEvent
+    ? controls.incidentRecords[controls.selectedEvent.id] ?? null
+    : null;
 
   const handleOpenEvent = (event: Parameters<typeof controls.openEvent>[0]) => {
     controls.setSelectedRegion(null);
@@ -95,7 +111,8 @@ function AppContent() {
       case 'globe':
         return (
           <GlobeScreen
-            snapshot={snapshot}
+            snapshot={scopedSnapshot}
+            regionFilter={controls.regionFilter}
             glow={radarShift}
             globeSize={globeSize}
             activeLayers={controls.activeLayers}
@@ -110,7 +127,7 @@ function AppContent() {
       case 'alerts':
         return (
           <AlertsScreen
-            snapshot={snapshot}
+            snapshot={scopedSnapshot}
             searchQuery={controls.searchQuery}
             severityFilter={controls.severityFilter}
             activeCategories={controls.activeCategories}
@@ -129,11 +146,28 @@ function AppContent() {
             onFocusCritical={controls.focusCriticalAlerts}
           />
         );
+      case 'regions':
+        return (
+          <RegionsScreen
+            snapshot={scopedSnapshot}
+            history={scopedHistory}
+            watchlist={controls.watchlist}
+            regionFilter={controls.regionFilter}
+            availableRegions={availableRegions}
+            reducedMotion={controls.settings.reducedMotion}
+            onToggleWatch={controls.toggleWatch}
+            onOpenEvent={handleOpenEvent}
+            onOpenRegion={handleOpenRegion}
+            onSetRegionFilter={controls.applyRegionFilter}
+          />
+        );
       case 'replay':
         return (
           <ReplayScreen
-            snapshot={snapshot}
-            history={history}
+            snapshot={scopedSnapshot}
+            history={scopedHistory}
+            availableRegions={availableRegions}
+            regionFilter={controls.regionFilter}
             playbackEnabled={playbackEnabled}
             reducedMotion={controls.settings.reducedMotion}
             onTogglePlayback={() => {
@@ -141,14 +175,15 @@ function AppContent() {
               setPlaybackEnabled((value) => !value);
             }}
             onOpenEvent={handleOpenEvent}
+            onSetRegionFilter={controls.applyRegionFilter}
           />
         );
       case 'overview':
       default:
         return (
           <OverviewScreen
-            snapshot={snapshot}
-            previousSnapshot={previousSnapshot}
+            snapshot={scopedSnapshot}
+            previousSnapshot={scopedPreviousSnapshot}
             compactMetrics={compactMetrics}
             stackHero={stackHero}
             lastUpdated={lastUpdated}
@@ -174,6 +209,8 @@ function AppContent() {
             <TopBar
               lastUpdated={lastUpdated}
               sourceStatus={snapshot.sourceStatus}
+              activeRegionFilter={controls.regionFilter}
+              isStale={isStale}
               isRefreshing={isRefreshing}
               theme={theme}
               categoryCountLabel={controls.categoryCountLabel}
@@ -182,6 +219,7 @@ function AppContent() {
                 void refreshDashboard();
               }}
               onOpenSettings={() => controls.setSettingsVisible(true)}
+              onClearRegionFilter={() => controls.applyRegionFilter(null)}
             />
             {isError ? (
               <StatusBanner
@@ -195,6 +233,13 @@ function AppContent() {
                 tone="warn"
                 title="Degraded Data"
                 message={snapshot.sourceStatus.detail}
+              />
+            ) : null}
+            {isStale && !isInitialLoading ? (
+              <StatusBanner
+                tone="warn"
+                title="Stale Live Data"
+                message="No successful live sync has completed in the last 10 minutes. Cached or fallback data may be shown."
               />
             ) : null}
             {isInitialLoading ? (
@@ -228,9 +273,12 @@ function AppContent() {
             visible={Boolean(controls.selectedEvent)}
             watched={selectedEventWatched}
             theme={theme}
+            sourceMeta={controls.selectedEvent ? deriveEventSourceMeta(snapshot, controls.selectedEvent) : null}
+            incident={selectedIncidentRecord}
             onClose={() => controls.setSelectedEvent(null)}
             onToggleWatch={controls.toggleWatch}
             onOpenRegion={handleOpenRegion}
+            onUpdateIncident={controls.updateIncident}
           />
 
           <RegionDetailModal

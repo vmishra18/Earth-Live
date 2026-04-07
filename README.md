@@ -2,7 +2,7 @@
 
 Live Earth Dashboard is an Expo app built around the idea of tracking global activity in one place. It mixes simulated telemetry with a few live public data sources and presents everything through a mobile-first dashboard.
 
-The app includes an overview screen, a world map, an alerts screen, and a replay screen for recent snapshots.
+The app includes an overview screen, a world map, a dedicated regions screen, an alerts screen, and a replay screen for recent snapshots.
 
 <img width="250" height="250" alt="Overview-Dark" src="https://github.com/user-attachments/assets/49996614-a8e8-4b29-b554-b05f45332925" />
 
@@ -17,6 +17,9 @@ The app includes an overview screen, a world map, an alerts screen, and a replay
 ## What the app does
 
 - Shows a dashboard with key metrics, trends, and region highlights
+- Surfaces ticker feed, trend cards, market cards, and regional weather bands from the shared snapshot model
+- Includes dedicated regional context for India and Dubai across overview, alerts, and map hotspots
+- Supports a global region filter, region-to-region compare view, feed health cards, and richer replay history
 - Displays a world view with map layers for earthquakes, flights, weather, markets, and satellites
 - Supports alert search, severity filtering, category filtering, and watch regions
 - Saves settings, watchlists, and recent snapshots locally with AsyncStorage
@@ -37,6 +40,10 @@ The globe screen is the map view of the app. On native platforms it uses `react-
 
 The alerts screen works like a small incident feed. It supports search, severity filters, category filters, and quick watch actions.
 
+### Regions
+
+The regions screen acts as an operational desk for watchlist management, global region filtering, region-to-region comparison, market cards, weather bands, and the full watch-zone stack.
+
 ### Replay
 
 The replay screen uses locally stored history to show recent snapshots in timeline form.
@@ -50,6 +57,7 @@ This project uses both generated telemetry and live public sources.
 - `USGS` for earthquake activity
 - `OpenSky Network` for flight state snapshots
 - `Open-Meteo` for current weather data from tracked cities
+- `Open-Meteo Marine` for live sea-surface and wave data
 - `Stooq` for a lightweight market basket snapshot
 
 ### Simulated feeds
@@ -57,9 +65,16 @@ This project uses both generated telemetry and live public sources.
 - Ocean conditions
 - Satellite coverage
 - Any category or metric that cannot be refreshed from a live source at runtime
+- Seeded regional signals for India and Dubai so those areas remain visible in demo mode
+
+### Regional overlays
+
+- India coverage includes live regional weather, live regional earthquake counts, live regional airspace counts, and live marine conditions
+- Dubai coverage includes live regional weather, live regional earthquake counts, live regional airspace counts, and live Gulf marine conditions
+- In `auto` and `live` modes, Open-Meteo city tracking includes Dubai, Mumbai, and New Delhi, while USGS and OpenSky are also queried with India/Dubai regional bounds
+- Market and watch-zone overlays are still lighter-weight than the regional weather/flight/earthquake/ocean feeds and should not be treated as exchange-grade market data
 
 If a live request fails, the app falls back to generated telemetry and clearly labels the current source state in the UI. That keeps the experience stable in demos, on unreliable networks, or when public endpoints throttle or fail.
-If a live request fails, the app falls back to generated telemetry and labels the source state in the UI.
 
 ## Tech stack
 
@@ -124,7 +139,7 @@ Dashboard snapshots are stored locally for each data mode. On launch, the app re
 
 ### Alerts and notifications
 
-Critical alerts can trigger local notifications and haptic feedback. Background refresh is best-effort and depends on platform support and OS behavior.
+Alerts can trigger local notifications and haptic feedback. Notification delivery now supports watchlist-only scope, elevated-vs-critical thresholds, live-only filtering, and optional quiet hours. Background refresh is best-effort and depends on platform support and OS behavior.
 
 ## Project structure
 

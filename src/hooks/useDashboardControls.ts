@@ -16,7 +16,19 @@ export type DashboardSettings = {
   compareMode: boolean;
   refreshRate: 'normal' | 'fast';
   notificationsEnabled: boolean;
+  notificationScope: 'all' | 'watched';
+  notificationSeverity: 'critical' | 'elevated';
+  notificationSourceMode: 'all' | 'live';
+  quietHoursEnabled: boolean;
   appearanceMode: AppAppearanceMode;
+};
+
+export type IncidentRecord = {
+  acknowledged: boolean;
+  muted: boolean;
+  priority: 'low' | 'normal' | 'high';
+  notes: string;
+  updatedAt: number;
 };
 
 export function useDashboardControls() {
@@ -30,6 +42,11 @@ export function useDashboardControls() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [incidentRecords, setIncidentRecords] = usePersistentState<Record<string, IncidentRecord>>(
+    'live-earth-incidents',
+    {}
+  );
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [settings, setSettings] = usePersistentState<DashboardSettings>('live-earth-settings', {
@@ -38,6 +55,10 @@ export function useDashboardControls() {
     compareMode: false,
     refreshRate: 'normal',
     notificationsEnabled: true,
+    notificationScope: 'all',
+    notificationSeverity: 'critical',
+    notificationSourceMode: 'all',
+    quietHoursEnabled: false,
     appearanceMode: 'system',
   });
 
@@ -89,6 +110,26 @@ export function useDashboardControls() {
     setSelectedRegion(region);
   };
 
+  const applyRegionFilter = (region: string | null) => {
+    selectionHaptic();
+    setRegionFilter(region);
+  };
+
+  const updateIncident = (eventId: string, next: Partial<IncidentRecord>) => {
+    selectionHaptic();
+    setIncidentRecords((current) => ({
+      ...current,
+      [eventId]: {
+        acknowledged: current[eventId]?.acknowledged ?? false,
+        muted: current[eventId]?.muted ?? false,
+        priority: current[eventId]?.priority ?? 'normal',
+        notes: current[eventId]?.notes ?? '',
+        ...next,
+        updatedAt: Date.now(),
+      },
+    }));
+  };
+
   return {
     activeCategories,
     activeLayers,
@@ -97,6 +138,8 @@ export function useDashboardControls() {
     severityFilter,
     selectedEvent,
     selectedRegion,
+    regionFilter,
+    incidentRecords,
     settingsVisible,
     filtersVisible,
     settings,
@@ -105,6 +148,7 @@ export function useDashboardControls() {
     setSeverityFilter,
     setSelectedEvent,
     setSelectedRegion,
+    setRegionFilter,
     setSettingsVisible,
     setFiltersVisible,
     toggleCategory,
@@ -115,5 +159,7 @@ export function useDashboardControls() {
     focusCriticalAlerts,
     openEvent,
     openRegion,
+    applyRegionFilter,
+    updateIncident,
   };
 }

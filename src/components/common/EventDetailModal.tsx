@@ -1,19 +1,25 @@
 import React from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import type { EventItem } from '../../data/liveEarth';
 import type { AppThemePalette } from '../../theme';
 import { shadows, spacing } from '../../theme';
+import { SourceBadge } from './SourceBadge';
 import { toneColor } from '../../utils/tone';
+import type { SourceMeta } from '../../utils/sourceStatus';
+import type { IncidentRecord } from '../../hooks/useDashboardControls';
 
 type EventDetailModalProps = {
   event: EventItem | null;
   visible: boolean;
   watched: boolean;
   theme: AppThemePalette;
+  sourceMeta?: SourceMeta | null;
+  incident?: IncidentRecord | null;
   onClose: () => void;
   onToggleWatch: (label: string) => void;
   onOpenRegion?: (region: string) => void;
+  onUpdateIncident: (eventId: string, next: Partial<IncidentRecord>) => void;
 };
 
 export function EventDetailModal({
@@ -21,9 +27,12 @@ export function EventDetailModal({
   visible,
   watched,
   theme,
+  sourceMeta,
+  incident,
   onClose,
   onToggleWatch,
   onOpenRegion,
+  onUpdateIncident,
 }: EventDetailModalProps) {
   if (!event) {
     return null;
@@ -32,6 +41,19 @@ export function EventDetailModal({
   const styles = createStyles(theme);
 
   const hasCoordinates = event.latitude != null && event.longitude != null;
+  const resolvedIncident = incident ?? {
+    acknowledged: false,
+    muted: false,
+    priority: 'normal' as const,
+    notes: '',
+    updatedAt: 0,
+  };
+
+  const handleShare = () => {
+    void Share.share({
+      message: `${event.title}\n${event.region}\n${event.summary}\nStat: ${event.stat}\nSource: ${event.source}`,
+    });
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -47,6 +69,7 @@ export function EventDetailModal({
 
           <Text style={styles.title}>{event.title}</Text>
           <Text style={styles.summary}>{event.summary}</Text>
+          {sourceMeta ? <SourceBadge meta={sourceMeta} /> : null}
 
           {hasCoordinates ? (
             Platform.OS === 'web' ? (
@@ -102,6 +125,62 @@ export function EventDetailModal({
             <Pressable onPress={() => onOpenRegion?.(event.region)} style={styles.regionButton}>
               <Text style={styles.regionButtonText}>Open Region</Text>
             </Pressable>
+            <Pressable onPress={handleShare} style={styles.regionButton}>
+              <Text style={styles.regionButtonText}>Share</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.workflowCard}>
+            <Text style={styles.workflowTitle}>Incident workflow</Text>
+            <View style={styles.actionRow}>
+              <Pressable
+                onPress={() => onUpdateIncident(event.id, { acknowledged: !resolvedIncident.acknowledged })}
+                style={[styles.pillButton, resolvedIncident.acknowledged && styles.pillButtonActive]}
+              >
+                <Text style={[styles.pillButtonText, resolvedIncident.acknowledged && styles.pillButtonTextActive]}>
+                  {resolvedIncident.acknowledged ? 'Acknowledged' : 'Acknowledge'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => onUpdateIncident(event.id, { muted: !resolvedIncident.muted })}
+                style={[styles.pillButton, resolvedIncident.muted && styles.pillButtonActive]}
+              >
+                <Text style={[styles.pillButtonText, resolvedIncident.muted && styles.pillButtonTextActive]}>
+                  {resolvedIncident.muted ? 'Muted' : 'Mute'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.priorityRow}>
+              {(['low', 'normal', 'high'] as const).map((priority) => (
+                <Pressable
+                  key={priority}
+                  onPress={() => onUpdateIncident(event.id, { priority })}
+                  style={[
+                    styles.priorityChip,
+                    resolvedIncident.priority === priority && styles.priorityChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.priorityChipText,
+                      resolvedIncident.priority === priority && styles.priorityChipTextActive,
+                    ]}
+                  >
+                    {priority}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              value={resolvedIncident.notes}
+              onChangeText={(notes) => onUpdateIncident(event.id, { notes })}
+              placeholder="Add incident notes"
+              placeholderTextColor={theme.subtleText}
+              multiline
+              style={styles.notesInput}
+            />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailList}>
@@ -237,6 +316,69 @@ const createStyles = (theme: AppThemePalette) =>
       color: theme.text,
       fontSize: 12,
       fontWeight: '700',
+    },
+    workflowCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      padding: spacing.md,
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    workflowTitle: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    pillButton: {
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: theme.surfaceRaised,
+    },
+    pillButtonActive: {
+      backgroundColor: theme.accentSoft,
+    },
+    pillButtonText: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    pillButtonTextActive: {
+      color: theme.accent,
+    },
+    priorityRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    priorityChip: {
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: theme.surfaceRaised,
+    },
+    priorityChipActive: {
+      backgroundColor: theme.accentSoft,
+    },
+    priorityChipText: {
+      color: theme.subtleText,
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+    },
+    priorityChipTextActive: {
+      color: theme.accent,
+    },
+    notesInput: {
+      minHeight: 90,
+      borderRadius: 16,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      backgroundColor: theme.surfaceRaised,
+      color: theme.text,
+      textAlignVertical: 'top',
+      fontSize: 13,
+      lineHeight: 18,
     },
     detailList: {
       gap: spacing.sm,

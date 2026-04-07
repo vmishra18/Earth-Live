@@ -16,6 +16,7 @@ import {
 } from '../data/liveEarth';
 import { radii, shadows, spacing, typeScale } from '../theme';
 import { useAppTheme } from '../themeContext';
+import { deriveEventSourceMeta } from '../utils/sourceStatus';
 
 type AlertsScreenProps = {
   snapshot: DashboardSnapshot;
@@ -104,18 +105,23 @@ export function AlertsScreen({
 
         {visibleAlerts.length ? (
           <View style={styles.stackGroup}>
-            {visibleAlerts.map((alert, index) => (
-              <StaggeredItem key={alert.id} index={1 + index} reducedMotion={reducedMotion}>
-                <AlertCard
-                  alert={alert}
-                  event={snapshot.events.find((event) => event.id === alert.eventId)}
-                  onOpenEvent={onOpenEvent}
-                  onOpenRegion={onOpenRegion}
-                  onToggleWatch={onToggleWatch}
-                  watched={watchlist.includes(alert.region)}
-                />
-              </StaggeredItem>
-            ))}
+            {visibleAlerts.map((alert, index) => {
+              const event = snapshot.events.find((candidate) => candidate.id === alert.eventId);
+
+              return (
+                <StaggeredItem key={alert.id} index={1 + index} reducedMotion={reducedMotion}>
+                  <AlertCard
+                    alert={alert}
+                    event={event}
+                    sourceMeta={event ? deriveEventSourceMeta(snapshot, event) : undefined}
+                    onOpenEvent={onOpenEvent}
+                    onOpenRegion={onOpenRegion}
+                    onToggleWatch={onToggleWatch}
+                    watched={watchlist.includes(alert.region)}
+                  />
+                </StaggeredItem>
+              );
+            })}
           </View>
         ) : (
           <EmptyStateCard

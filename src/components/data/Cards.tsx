@@ -23,7 +23,9 @@ import type {
 import { radii, shadows, spacing, typeScale } from '../../theme';
 import { useAppTheme } from '../../themeContext';
 import type { RegionFocus } from '../../utils/regions';
+import type { SourceMeta } from '../../utils/sourceStatus';
 import { toneColor } from '../../utils/tone';
+import { SourceBadge } from '../common/SourceBadge';
 import { AnimatedNumber } from '../common/AnimatedNumber';
 
 type EventPressableProps = {
@@ -109,11 +111,13 @@ export function TrendCard({
   event,
   onOpenEvent,
   style,
+  sourceMeta,
 }: {
   item: Trend;
   event?: EventItem;
   onOpenEvent?: (event: EventItem) => void;
   style?: StyleProp<ViewStyle>;
+  sourceMeta?: SourceMeta;
 }) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
@@ -123,6 +127,7 @@ export function TrendCard({
       <Text style={styles.trendTitle}>{item.title}</Text>
       <Text style={styles.trendSubtitle}>{item.subtitle}</Text>
       <Text style={[styles.trendValue, { color: toneColor(item.tone) }]}>{item.value}</Text>
+      {sourceMeta ? <SourceBadge meta={sourceMeta} compact /> : null}
     </Pressable>
   );
 }
@@ -134,9 +139,11 @@ export function AlertCard({
   onOpenRegion,
   onToggleWatch,
   watched,
+  sourceMeta,
 }: {
   alert: AlertItem;
   event?: EventItem;
+  sourceMeta?: SourceMeta;
 } & EventPressableProps) {
   const [expanded, setExpanded] = useState(false);
   const theme = useAppTheme();
@@ -165,6 +172,7 @@ export function AlertCard({
       </View>
       <Text style={styles.alertTitle}>{alert.title}</Text>
       <Text style={styles.alertBody}>{alert.body}</Text>
+      {sourceMeta ? <SourceBadge meta={sourceMeta} compact /> : null}
       {expanded && event ? (
         <View style={styles.expandedCard}>
           {event.details.slice(0, 2).map((detail) => (
@@ -186,11 +194,13 @@ export function MarketCard({
   event,
   onOpenEvent,
   style,
+  sourceMeta,
 }: {
   market: MarketPulse;
   event?: EventItem;
   onOpenEvent?: (event: EventItem) => void;
   style?: StyleProp<ViewStyle>;
+  sourceMeta?: SourceMeta;
 }) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
@@ -201,6 +211,7 @@ export function MarketCard({
       <Text style={styles.marketName}>{market.name}</Text>
       <Text style={styles.marketValue}>{market.value}</Text>
       <Text style={[styles.marketDelta, { color: toneColor(market.tone) }]}>{market.delta}</Text>
+      {sourceMeta ? <SourceBadge meta={sourceMeta} compact /> : null}
     </Pressable>
   );
 }
@@ -245,10 +256,12 @@ export function WeatherBandCard({
   band,
   event,
   onOpenEvent,
+  sourceMeta,
 }: {
   band: WeatherBand;
   event?: EventItem;
   onOpenEvent?: (event: EventItem) => void;
+  sourceMeta?: SourceMeta;
 }) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
@@ -260,6 +273,7 @@ export function WeatherBandCard({
         <Text style={styles.weatherStat}>Wind {band.wind}</Text>
         <Text style={styles.weatherStat}>Seas {band.seas}</Text>
       </View>
+      {sourceMeta ? <SourceBadge meta={sourceMeta} compact /> : null}
       <View style={[styles.weatherStrip, { backgroundColor: toneColor(band.tone) }]} />
     </Pressable>
   );
@@ -302,12 +316,14 @@ export function RegionFocusCard({
   onOpenRegion,
   onOpenEvent,
   onToggleWatch,
+  sourceMeta,
 }: {
   item: RegionFocus;
   watched?: boolean;
   onOpenRegion: (region: string) => void;
   onOpenEvent: (event: EventItem) => void;
   onToggleWatch: (label: string) => void;
+  sourceMeta?: SourceMeta;
 }) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
@@ -329,6 +345,7 @@ export function RegionFocusCard({
         </Pressable>
       </View>
       <Text style={styles.regionSummary}>{item.summary}</Text>
+      {sourceMeta ? <SourceBadge meta={sourceMeta} compact /> : null}
       <View style={styles.regionFooter}>
         <Text style={styles.regionStat}>{item.stat}</Text>
         <View style={styles.regionActions}>

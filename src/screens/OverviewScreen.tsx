@@ -2,12 +2,14 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { StaggeredItem } from '../components/common/StaggeredItem';
-import { MetricCard, RegionFocusCard } from '../components/data/Cards';
+import { FeedHealthPanel } from '../components/common/FeedHealthPanel';
+import { MetricCard, RegionFocusCard, TickerRow, TrendCard } from '../components/data/Cards';
 import { ActivityChart } from '../components/data/Charts';
 import { type DashboardSnapshot, type EventItem } from '../data/liveEarth';
 import { radii, shadows, spacing, typeScale } from '../theme';
 import { useAppTheme } from '../themeContext';
 import { deriveRegionFocus } from '../utils/regions';
+import { deriveCategorySourceMeta } from '../utils/sourceStatus';
 
 type OverviewScreenProps = {
   snapshot: DashboardSnapshot;
@@ -119,11 +121,19 @@ export function OverviewScreen({
         <SectionHeader badge="Signals" title="Key signals" hint="Core feeds only." />
       </StaggeredItem>
 
+      <StaggeredItem index={2} reducedMotion={reducedMotion}>
+        <FeedHealthPanel snapshot={snapshot} />
+      </StaggeredItem>
+
+      <StaggeredItem index={3} reducedMotion={reducedMotion}>
+        <TickerRow feed={snapshot.feed} events={snapshot.events} onOpenEvent={onOpenEvent} />
+      </StaggeredItem>
+
       <View style={styles.metricGrid}>
         {primaryMetrics.map((metric, index) => (
           <StaggeredItem
             key={metric.id}
-            index={2 + index}
+            index={4 + index}
             reducedMotion={reducedMotion}
             style={compactMetrics ? styles.metricCellCompact : styles.metricCell}
           >
@@ -140,7 +150,7 @@ export function OverviewScreen({
       </View>
 
       {featuredMetric ? (
-        <StaggeredItem index={5} reducedMotion={reducedMotion}>
+        <StaggeredItem index={7} reducedMotion={reducedMotion}>
           <View style={styles.featuredMetricWrap}>
             <MetricCard metric={featuredMetric} reducedMotion={reducedMotion} />
             {compareMode ? (
@@ -152,26 +162,48 @@ export function OverviewScreen({
         </StaggeredItem>
       ) : null}
 
-      <StaggeredItem index={6} reducedMotion={reducedMotion}>
+      <StaggeredItem index={8} reducedMotion={reducedMotion}>
+        <SectionHeader badge="Trends" title="Trend deck" hint="Tap to open the linked event." />
+      </StaggeredItem>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trendRow}>
+        {snapshot.trending.map((item, index) => {
+          const event = snapshot.events.find((candidate) => candidate.id === item.eventId);
+
+          return (
+            <StaggeredItem key={item.id} index={9 + index} reducedMotion={reducedMotion}>
+              <TrendCard
+                item={item}
+                event={event}
+                onOpenEvent={onOpenEvent}
+                sourceMeta={deriveCategorySourceMeta(snapshot, item.category)}
+              />
+            </StaggeredItem>
+          );
+        })}
+      </ScrollView>
+
+      <StaggeredItem index={13} reducedMotion={reducedMotion}>
         <View style={styles.activityCard}>
           <SectionHeader badge="Flow" title="Activity" hint="12-hour range" />
           <ActivityChart points={snapshot.activity} />
         </View>
       </StaggeredItem>
 
-      <StaggeredItem index={7} reducedMotion={reducedMotion}>
+      <StaggeredItem index={14} reducedMotion={reducedMotion}>
         <SectionHeader badge="Focus" title="Priority regions" hint="Open a region or event." />
       </StaggeredItem>
 
       <View style={styles.regionStack}>
         {focusRegions.map((item, index) => (
-          <StaggeredItem key={item.name} index={8 + index} reducedMotion={reducedMotion}>
+          <StaggeredItem key={item.name} index={15 + index} reducedMotion={reducedMotion}>
             <RegionFocusCard
               item={item}
               watched={watchlist.includes(item.name)}
               onOpenRegion={onOpenRegion}
               onOpenEvent={onOpenEvent}
               onToggleWatch={onToggleWatch}
+              sourceMeta={deriveCategorySourceMeta(snapshot, item.category)}
             />
           </StaggeredItem>
         ))}
@@ -318,6 +350,10 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
+    },
+    trendRow: {
+      gap: spacing.md,
+      paddingRight: spacing.lg,
     },
     metricCell: {
       width: '31.5%',

@@ -1,33 +1,42 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SingleSelectChips } from '../components/common/FilterChips';
 import { StaggeredItem } from '../components/common/StaggeredItem';
-import { ReplayBars } from '../components/data/Charts';
+import { HistoryTrendChart, ReplayBars } from '../components/data/Charts';
 import { TimelineList } from '../components/data/Cards';
-import type { DashboardSnapshot, EventItem } from '../data/liveEarth';
+import type { DashboardSnapshot, EventItem, FeedCategory } from '../data/liveEarth';
 import { radii, shadows, spacing, typeScale } from '../theme';
 import { useAppTheme } from '../themeContext';
+import { deriveCategoryHistory, deriveRegionHistory } from '../utils/history';
 
 type ReplayScreenProps = {
   snapshot: DashboardSnapshot;
   history: DashboardSnapshot[];
+  availableRegions: string[];
+  regionFilter?: string | null;
   playbackEnabled: boolean;
   reducedMotion?: boolean;
   onTogglePlayback: () => void;
   onOpenEvent: (event: EventItem) => void;
+  onSetRegionFilter: (region: string | null) => void;
 };
 
 export function ReplayScreen({
   snapshot,
   history,
+  availableRegions,
+  regionFilter = null,
   playbackEnabled,
   reducedMotion = false,
   onTogglePlayback,
   onOpenEvent,
+  onSetRegionFilter,
 }: ReplayScreenProps) {
   const theme = useAppTheme();
   const styles = createStyles(theme);
   const recentHistory = history.slice(-7);
   const [selectedIndex, setSelectedIndex] = useState(recentHistory.length - 1);
+  const [selectedCategory, setSelectedCategory] = useState<FeedCategory>('weather');
 
   const selectedSnapshot = recentHistory[selectedIndex] ?? snapshot;
   const replayFrames = useMemo(
@@ -39,6 +48,8 @@ export function ReplayScreen({
       })),
     [recentHistory]
   );
+  const categoryHistory = deriveCategoryHistory(recentHistory, selectedCategory);
+  const regionHistory = regionFilter ? deriveRegionHistory(recentHistory, regionFilter) : [];
 
   return (
     <ScrollView
@@ -87,6 +98,39 @@ export function ReplayScreen({
       </StaggeredItem>
 
       <StaggeredItem index={1} reducedMotion={reducedMotion}>
+        <View style={styles.panelCard}>
+          <Text style={styles.timelineTitleBlock}>History focus</Text>
+          <Text style={styles.timelineCopy}>Switch category trends and apply a global region filter from replay.</Text>
+          <SingleSelectChips<FeedCategory>
+            options={[
+              { label: 'Weather', value: 'weather' },
+              { label: 'Flights', value: 'flights' },
+              { label: 'Quakes', value: 'earthquakes' },
+              { label: 'Ocean', value: 'ocean' },
+              { label: 'Markets', value: 'markets' },
+              { label: 'Sat', value: 'satellites' },
+            ]}
+            selected={selectedCategory}
+            onSelect={setSelectedCategory}
+          />
+          <HistoryTrendChart points={categoryHistory} />
+          <View style={styles.frameRow}>
+            <SingleSelectChips<string>
+              options={[{ label: 'All Regions', value: '__all__' }, ...availableRegions.map((item) => ({ label: item, value: item }))]}
+              selected={regionFilter ?? '__all__'}
+              onSelect={(value) => onSetRegionFilter(value === '__all__' ? null : value)}
+            />
+          </View>
+          {regionFilter ? (
+            <View style={styles.regionHistoryWrap}>
+              <Text style={styles.timelineCopy}>Region history for {regionFilter}</Text>
+              <HistoryTrendChart points={regionHistory} />
+            </View>
+          ) : null}
+        </View>
+      </StaggeredItem>
+
+      <StaggeredItem index={2} reducedMotion={reducedMotion}>
         <View style={styles.panelCard}>
           <Text style={styles.timelineTitleBlock}>Timeline</Text>
           <Text style={styles.timelineCopy}>
@@ -186,6 +230,10 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) => StyleSheet.creat
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  regionHistoryWrap: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   frameChip: {
     borderRadius: radii.pill,

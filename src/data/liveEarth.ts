@@ -153,7 +153,16 @@ export type DataSourceStatus = {
   label: string;
   detail: string;
   updatedAt: number;
+  lastSuccessfulLiveAt: number | null;
   liveCategories: FeedCategory[];
+  categories: Record<
+    FeedCategory,
+    {
+      status: 'live' | 'fallback' | 'demo' | 'error';
+      detail: string;
+      updatedAt: number;
+    }
+  >;
 };
 
 export type DashboardSnapshot = {
@@ -186,6 +195,16 @@ export type LiveDataPatch = {
   detail: string;
   metrics?: Partial<Record<FeedCategory, Partial<Metric>>>;
   events?: Partial<Record<FeedCategory, EventItem[]>>;
+  categories?: Partial<
+    Record<
+      FeedCategory,
+      {
+        status: 'live' | 'fallback' | 'error';
+        detail: string;
+        updatedAt: number;
+      }
+    >
+  >;
 };
 
 export const allCategories: FeedCategory[] = [
@@ -198,12 +217,14 @@ export const allCategories: FeedCategory[] = [
 ];
 
 const hotspotTemplates = [
-  { id: 'tokyo', label: 'Tokyo', region: 'Japan', latitude: 35.67, longitude: 139.65, x: 76, y: 28, color: colors.mint, category: 'earthquakes' },
-  { id: 'san-francisco', label: 'San Francisco', region: 'United States', latitude: 37.77, longitude: -122.42, x: 17, y: 43, color: colors.sky, category: 'flights' },
-  { id: 'santiago', label: 'Santiago', region: 'Chile', latitude: -33.45, longitude: -70.67, x: 23, y: 74, color: colors.coral, category: 'earthquakes' },
-  { id: 'london', label: 'London', region: 'United Kingdom', latitude: 51.5, longitude: -0.12, x: 47, y: 30, color: colors.sun, category: 'markets' },
-  { id: 'nairobi', label: 'Nairobi', region: 'Kenya', latitude: -1.29, longitude: 36.82, x: 56, y: 56, color: colors.sky, category: 'weather' },
-  { id: 'sydney', label: 'Sydney', region: 'Australia', latitude: -33.87, longitude: 151.21, x: 83, y: 75, color: colors.mint, category: 'satellites' },
+  { id: 'tokyo', label: 'Tokyo', region: 'Japan', latitude: 35.67, longitude: 139.65, x: 76, y: 28, color: colors.mint, category: 'earthquakes', eventHints: ['japan', 'trench'] },
+  { id: 'san-francisco', label: 'San Francisco', region: 'United States', latitude: 37.77, longitude: -122.42, x: 17, y: 43, color: colors.sky, category: 'flights', eventHints: ['atlantic', 'airspace'] },
+  { id: 'santiago', label: 'Santiago', region: 'Chile', latitude: -33.45, longitude: -70.67, x: 23, y: 74, color: colors.coral, category: 'earthquakes', eventHints: ['quake', 'seismic'] },
+  { id: 'london', label: 'London', region: 'United Kingdom', latitude: 51.5, longitude: -0.12, x: 47, y: 30, color: colors.sun, category: 'markets', eventHints: ['global', 'indices'] },
+  { id: 'nairobi', label: 'Nairobi', region: 'Kenya', latitude: -1.29, longitude: 36.82, x: 56, y: 56, color: colors.sky, category: 'weather', eventHints: ['weather', 'wind'] },
+  { id: 'dubai', label: 'Dubai', region: 'Dubai, UAE', latitude: 25.2, longitude: 55.27, x: 61, y: 43, color: colors.sun, category: 'flights', eventHints: ['dubai', 'uae'] },
+  { id: 'mumbai', label: 'Mumbai', region: 'India', latitude: 19.08, longitude: 72.88, x: 65, y: 47, color: colors.coral, category: 'weather', eventHints: ['india', 'mumbai', 'delhi', 'bay of bengal'] },
+  { id: 'sydney', label: 'Sydney', region: 'Australia', latitude: -33.87, longitude: 151.21, x: 83, y: 75, color: colors.mint, category: 'satellites', eventHints: ['orbital', 'satellite'] },
 ] as const;
 
 const categoryLabels: Record<FeedCategory, string> = {
@@ -246,6 +267,49 @@ function toneColor(tone: Tone) {
     warn: colors.sun,
     danger: colors.coral,
   }[tone];
+}
+
+function includesAnyTerm(value: string, terms: string[]) {
+  const normalized = value.toLowerCase();
+  return terms.some((term) => normalized.includes(term.toLowerCase()));
+}
+
+function eventMatchesHints(event: EventItem, hints: string[]) {
+  if (!hints.length) {
+    return true;
+  }
+
+  return includesAnyTerm([event.title, event.region, event.summary, ...event.details].join(' '), hints);
+}
+
+function findLinkedEvent(events: EventItem[], category: FeedCategory, hints: string[] = []) {
+  return (
+    events.find((event) => event.category === category && eventMatchesHints(event, hints)) ??
+    events.find((event) => event.category === category) ??
+    events[0]
+  );
+}
+
+function rankEventForHighlights(event: EventItem) {
+  let score = 0;
+  const payload = [event.title, event.region, event.summary].join(' ').toLowerCase();
+
+  if (payload.includes('india')) {
+    score += 40;
+  }
+  if (payload.includes('dubai') || payload.includes('uae') || payload.includes('united arab emirates')) {
+    score += 35;
+  }
+
+  score += { danger: 24, warn: 18, neutral: 12, calm: 8 }[event.tone];
+  score += { weather: 10, flights: 8, markets: 7, earthquakes: 6, satellites: 4, ocean: 3 }[event.category];
+  return score;
+}
+
+function selectHighlightEvents(events: EventItem[], limit: number) {
+  return [...events]
+    .sort((left, right) => rankEventForHighlights(right) - rankEventForHighlights(left))
+    .slice(0, limit);
 }
 
 function createMetric(
@@ -324,6 +388,42 @@ function buildMetrics(): Metric[] {
 function buildEvents(metrics: Metric[]): EventItem[] {
   return [
     {
+      id: 'event-weather-india',
+      title: 'India monsoon corridor',
+      category: 'weather',
+      region: 'India',
+      latitude: 20.59,
+      longitude: 78.96,
+      tone: metrics[2].tone,
+      summary: 'Bay of Bengal inflow and west-coast moisture transport are both trending above baseline.',
+      stat: `${Math.round(randomBetween(12, 24))} cells near coast`,
+      updatedAt: 'just now',
+      source: 'Weather mesh',
+      details: [
+        'Mumbai, Chennai, and Bay of Bengal lanes are carrying the densest convective activity.',
+        'Surface wind shifts are widening routing pressure for ports, air corridors, and inland logistics.',
+        'Emergency planners should watch for fast changes between coastal and interior districts.',
+      ],
+    },
+    {
+      id: 'event-flights-dubai',
+      title: 'Dubai air hub compression',
+      category: 'flights',
+      region: 'Dubai, UAE',
+      latitude: 25.2,
+      longitude: 55.27,
+      tone: metrics[1].tone,
+      summary: 'Gulf transfer banks are tightening as long-haul arrivals converge on the regional hub.',
+      stat: `${Math.round(randomBetween(76, 93))}% arrival wave load`,
+      updatedAt: '1m ago',
+      source: 'Aviation grid',
+      details: [
+        'Departure sequencing is compressing around the evening connection bank over the Gulf.',
+        'Heat and routing offsets are increasing turnaround pressure across hub-adjacent corridors.',
+        'Controllers are prioritizing spacing stability over minor schedule recovery.',
+      ],
+    },
+    {
       id: 'event-earthquakes-ring',
       title: 'Ring of Fire escalation',
       category: 'earthquakes',
@@ -339,42 +439,6 @@ function buildEvents(metrics: Metric[]): EventItem[] {
         'Clusters remain shallow and closely spaced across island arcs.',
         'Secondary wave activity is broadening into neighboring monitored zones.',
         'Operators should expect more alert churn during the next replay window.',
-      ],
-    },
-    {
-      id: 'event-flights-atlantic',
-      title: 'Atlantic corridor saturation',
-      category: 'flights',
-      region: 'North Atlantic',
-      latitude: 52.0,
-      longitude: -30.0,
-      tone: metrics[1].tone,
-      summary: 'Long-haul routes are stacking across the most efficient tracks.',
-      stat: metrics[1].delta,
-      updatedAt: '1m ago',
-      source: 'Aviation grid',
-      details: [
-        'Track allocation remains dense across westbound and eastbound lanes.',
-        'Weather avoidance is compounding route convergence.',
-        'Dispatch teams are prioritizing route smoothing over time gains.',
-      ],
-    },
-    {
-      id: 'event-weather-monsoon',
-      title: 'Monsoon cell expansion',
-      category: 'weather',
-      region: 'Bay of Bengal',
-      latitude: 17.0,
-      longitude: 88.0,
-      tone: metrics[2].tone,
-      summary: 'Convective growth is outrunning this morning baseline.',
-      stat: metrics[2].delta,
-      updatedAt: '3m ago',
-      source: 'Weather mesh',
-      details: [
-        'Low-pressure rotation is tightening over warm water.',
-        'Coastal routing risk is increasing for marine and aviation paths.',
-        'Wind shear remains unstable across the active boundary.',
       ],
     },
     {
@@ -396,6 +460,42 @@ function buildEvents(metrics: Metric[]): EventItem[] {
       ],
     },
     {
+      id: 'event-markets-india',
+      title: 'India index breadth divergence',
+      category: 'markets',
+      region: 'India',
+      latitude: 19.07,
+      longitude: 72.88,
+      tone: metrics[4].tone,
+      summary: 'Benchmark breadth is splitting between domestic cyclicals and export-sensitive names.',
+      stat: `${metrics[4].value} pulse`,
+      updatedAt: '2m ago',
+      source: 'Market pulse',
+      details: [
+        'Financials and infrastructure names are holding up better than rate-sensitive tech pockets.',
+        'Volatility is rising around the open-close handoff across Mumbai desks.',
+        'Traders are rotating toward liquidity and away from overnight momentum.',
+      ],
+    },
+    {
+      id: 'event-markets-dubai',
+      title: 'Dubai capital flow watch',
+      category: 'markets',
+      region: 'Dubai, UAE',
+      latitude: 25.2,
+      longitude: 55.27,
+      tone: metrics[4].tone,
+      summary: 'Regional risk appetite is shifting alongside logistics and energy-sensitive positioning.',
+      stat: `${Math.abs(metrics[4].numericValue).toFixed(1)} swing`,
+      updatedAt: '2m ago',
+      source: 'Market pulse',
+      details: [
+        'Cross-border flows are favoring liquid Gulf exposures over thinner regional names.',
+        'Energy-linked sentiment is driving faster repricing into the Dubai session handoff.',
+        'Desk positioning remains tactical while global futures direction stays mixed.',
+      ],
+    },
+    {
       id: 'event-markets-open',
       title: 'Risk sentiment reversal',
       category: 'markets',
@@ -411,6 +511,24 @@ function buildEvents(metrics: Metric[]): EventItem[] {
         'Energy-led volatility is spreading into broader index pricing.',
         'Cross-market pressure is visible in European and Asian sessions.',
         'Short-term positioning remains reactive rather than directional.',
+      ],
+    },
+    {
+      id: 'event-flights-atlantic',
+      title: 'Atlantic corridor saturation',
+      category: 'flights',
+      region: 'North Atlantic',
+      latitude: 52.0,
+      longitude: -30.0,
+      tone: metrics[1].tone,
+      summary: 'Long-haul routes are stacking across the most efficient tracks.',
+      stat: metrics[1].delta,
+      updatedAt: '4m ago',
+      source: 'Aviation grid',
+      details: [
+        'Track allocation remains dense across westbound and eastbound lanes.',
+        'Weather avoidance is compounding route convergence.',
+        'Dispatch teams are prioritizing route smoothing over time gains.',
       ],
     },
     {
@@ -435,8 +553,8 @@ function buildEvents(metrics: Metric[]): EventItem[] {
 }
 
 function buildHotspots(events: EventItem[]): Hotspot[] {
-  return hotspotTemplates.map((spot, index) => {
-    const event = events.find((item) => item.category === spot.category) ?? events[index % events.length];
+  return hotspotTemplates.map((spot) => {
+    const event = findLinkedEvent(events, spot.category, [...spot.eventHints]);
     const intensity = Math.round(randomBetween(48, 100));
 
     return {
@@ -457,15 +575,18 @@ function buildHotspots(events: EventItem[]): Hotspot[] {
 }
 
 function buildTrending(metrics: Metric[], events: EventItem[]): Trend[] {
-  return metrics.slice(0, 4).map((metric, index) => ({
-    id: `trend-${metric.category}`,
-    title: categoryLabels[metric.category],
-    subtitle: events[index].summary,
-    value: metric.value,
-    category: metric.category,
-    tone: metric.tone,
-    eventId: events[index].id,
-  }));
+  return metrics.slice(0, 4).map((metric, index) => {
+    const linkedEvent = events.find((event) => event.category === metric.category) ?? events[index % events.length];
+    return {
+      id: `trend-${metric.category}`,
+      title: categoryLabels[metric.category],
+      subtitle: linkedEvent.summary,
+      value: metric.value,
+      category: metric.category,
+      tone: metric.tone,
+      eventId: linkedEvent.id,
+    };
+  });
 }
 
 function buildActivity(): ActivityPoint[] {
@@ -478,7 +599,7 @@ function buildActivity(): ActivityPoint[] {
 }
 
 function buildAlerts(events: EventItem[]): AlertItem[] {
-  return events.slice(0, 4).map((event) => ({
+  return selectHighlightEvents(events, 6).map((event) => ({
     id: `alert-${event.id}`,
     title: event.title,
     body: event.summary,
@@ -490,7 +611,7 @@ function buildAlerts(events: EventItem[]): AlertItem[] {
 }
 
 function buildTimeline(events: EventItem[]): TimelineEntry[] {
-  return events.concat(events[0]).slice(0, 7).map((event, index) => ({
+  return selectHighlightEvents(events, 7).map((event, index) => ({
     id: `timeline-${event.id}-${index}`,
     time: `${String(5 + index * 2).padStart(2, '0')}:00`,
     title: event.title,
@@ -521,12 +642,16 @@ function buildSatellites(events: EventItem[]): SatelliteTrack[] {
 }
 
 function buildMarkets(events: EventItem[]): MarketPulse[] {
-  const marketEvent = events.find((event) => event.category === 'markets') ?? events[0];
+  const globalMarketEvent = findLinkedEvent(events, 'markets', ['global', 'indices', 'risk']);
+  const indiaMarketEvent = findLinkedEvent(events, 'markets', ['india', 'mumbai', 'nifty', 'sensex']);
+  const dubaiMarketEvent = findLinkedEvent(events, 'markets', ['dubai', 'uae', 'gulf']);
   return [
     ['S&P 500', 'US'],
     ['FTSE 100', 'UK'],
     ['Nikkei 225', 'JP'],
     ['Nifty 50', 'IN'],
+    ['BSE Sensex', 'IN'],
+    ['DFM General', 'AE'],
   ].map(([name, region]) => {
     const delta = randomBetween(-1.9, 1.6);
     return {
@@ -537,32 +662,39 @@ function buildMarkets(events: EventItem[]): MarketPulse[] {
       delta: `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%`,
       tone: toneFromDelta(delta),
       category: 'markets',
-      eventId: marketEvent.id,
+      eventId:
+        region === 'IN'
+          ? indiaMarketEvent.id
+          : region === 'AE'
+            ? dubaiMarketEvent.id
+            : globalMarketEvent.id,
     };
   });
 }
 
 function buildWatchZones(events: EventItem[]): WatchZone[] {
-  const mapping: [string, FeedCategory, string, Tone][] = [
-    ['Arctic front', 'weather', 'Wind shear and sea ice movement are converging.', 'warn'],
-    ['Andean coast', 'earthquakes', 'Seismic and weather activity are overlapping near coastlines.', 'danger'],
-    ['Mediterranean basin', 'markets', 'Heat and market stress are raising logistics risk.', 'neutral'],
-    ['Indo-Pacific corridor', 'flights', 'Flight load and storm cells are reinforcing routing pressure.', 'warn'],
+  const mapping: [string, FeedCategory, string, Tone, string[]][] = [
+    ['Dubai air corridor', 'flights', 'Transfer-bank congestion and Gulf routing offsets are reinforcing each other.', 'warn', ['dubai', 'uae', 'gulf']],
+    ['India monsoon belt', 'weather', 'Convective expansion is colliding with coastal transport and aviation exposure.', 'danger', ['india', 'mumbai', 'delhi', 'bay of bengal']],
+    ['Arctic front', 'weather', 'Wind shear and sea ice movement are converging.', 'warn', ['weather']],
+    ['Andean coast', 'earthquakes', 'Seismic and weather activity are overlapping near coastlines.', 'danger', ['quake', 'seismic']],
+    ['Mediterranean basin', 'markets', 'Heat and market stress are raising logistics risk.', 'neutral', ['global', 'indices']],
+    ['Indo-Pacific corridor', 'flights', 'Flight load and storm cells are reinforcing routing pressure.', 'warn', ['atlantic', 'airspace']],
   ];
 
-  return mapping.map(([name, category, detail, tone]) => ({
+  return mapping.map(([name, category, detail, tone, hints]) => ({
     id: `watch-${name.toLowerCase().replace(/\s+/g, '-')}`,
     name,
     risk: tone === 'danger' ? 'Critical' : tone === 'warn' ? 'Elevated' : 'Guarded',
     detail,
     tone,
     category,
-    eventId: events.find((event) => event.category === category)?.id ?? events[0].id,
+    eventId: findLinkedEvent(events, category, hints).id,
   }));
 }
 
 function buildFeed(events: EventItem[]): FeedItem[] {
-  return events.slice(0, 4).map((event) => ({
+  return selectHighlightEvents(events, 6).map((event) => ({
     id: `feed-${event.id}`,
     label: categoryLabels[event.category],
     detail: event.stat,
@@ -581,15 +713,22 @@ function buildReplayFrames(): ReplayFrame[] {
 }
 
 function buildWeatherBands(events: EventItem[]): WeatherBand[] {
-  const weatherEvent = events.find((event) => event.category === 'weather') ?? events[0];
-  return ['North Atlantic', 'Arabian Sea', 'South Pacific', 'Gulf Stream'].map((zone, index) => ({
+  const globalWeatherEvent = findLinkedEvent(events, 'weather', ['weather']);
+  const indiaWeatherEvent = findLinkedEvent(events, 'weather', ['india', 'mumbai', 'delhi', 'bay of bengal']);
+  const dubaiWeatherEvent = findLinkedEvent(events, 'weather', ['dubai', 'uae', 'gulf']);
+  return ['Bay of Bengal', 'Arabian Sea', 'Persian Gulf', 'North Atlantic'].map((zone, index) => ({
     id: `weather-band-${index}`,
     zone,
     wind: `${Math.round(randomBetween(22, 78))} kt`,
     seas: `${randomBetween(1.8, 6.7).toFixed(1)} m`,
-    tone: (['warn', 'danger', 'neutral', 'warn'] as Tone[])[index],
+    tone: (['warn', 'danger', 'warn', 'neutral'] as Tone[])[index],
     category: 'weather',
-    eventId: weatherEvent.id,
+    eventId:
+      zone === 'Persian Gulf'
+        ? dubaiWeatherEvent.id
+        : zone === 'Bay of Bengal' || zone === 'Arabian Sea'
+          ? indiaWeatherEvent.id
+          : globalWeatherEvent.id,
   }));
 }
 
@@ -604,14 +743,34 @@ function buildSummary(metrics: Metric[]) {
   };
 }
 
+function createCategoryStatusMap(
+  mode: DataMode,
+  updates: Partial<Record<FeedCategory, DataSourceStatus['categories'][FeedCategory]>> = {},
+  timestamp = Date.now()
+): DataSourceStatus['categories'] {
+  return Object.fromEntries(
+    allCategories.map((category) => [
+      category,
+      updates[category] ?? {
+        status: mode === 'demo' ? 'demo' : 'fallback',
+        detail: mode === 'demo' ? 'Generated telemetry only.' : 'Awaiting live refresh.',
+        updatedAt: timestamp,
+      },
+    ])
+  ) as DataSourceStatus['categories'];
+}
+
 function createSourceStatus(mode: DataMode, isLive = false, detail = 'Using generated demo telemetry.'): DataSourceStatus {
+  const timestamp = Date.now();
   return {
     mode,
     isLive,
     label: isLive ? 'LIVE' : mode === 'live' ? 'LIVE FALLBACK' : mode === 'auto' ? 'AUTO DEMO' : 'DEMO',
     detail,
-    updatedAt: Date.now(),
+    updatedAt: timestamp,
+    lastSuccessfulLiveAt: isLive ? timestamp : null,
     liveCategories: [],
+    categories: createCategoryStatusMap(mode, {}, timestamp),
   };
 }
 
@@ -697,9 +856,7 @@ export function applyLiveData(base: DashboardSnapshot, patch: LiveDataPatch, mod
     }
   }
 
-  const sortedEvents = allCategories
-    .map((category) => events.find((event) => event.category === category))
-    .filter(Boolean) as EventItem[];
+  const resolvedEvents = events.length ? events : base.events;
 
   return {
     ...base,
@@ -710,20 +867,29 @@ export function applyLiveData(base: DashboardSnapshot, patch: LiveDataPatch, mod
       label: patch.liveCategories.length > 0 ? 'LIVE' : mode === 'live' ? 'LIVE FALLBACK' : 'AUTO DEMO',
       detail: patch.detail,
       updatedAt: patch.fetchedAt,
+      lastSuccessfulLiveAt:
+        patch.liveCategories.length > 0
+          ? patch.fetchedAt
+          : base.sourceStatus.lastSuccessfulLiveAt,
       liveCategories: patch.liveCategories,
+      categories: createCategoryStatusMap(
+        patch.liveCategories.length > 0 ? mode : base.sourceStatus.mode,
+        patch.categories,
+        patch.fetchedAt
+      ),
     },
     summary: buildSummary(metrics),
     metrics,
-    events: sortedEvents.length ? sortedEvents : base.events,
-    hotspots: buildHotspots(sortedEvents.length ? sortedEvents : base.events),
-    trending: buildTrending(metrics, sortedEvents.length ? sortedEvents : base.events),
-    alerts: buildAlerts(sortedEvents.length ? sortedEvents : base.events),
-    timeline: buildTimeline(sortedEvents.length ? sortedEvents : base.events),
-    satellites: buildSatellites(sortedEvents.length ? sortedEvents : base.events),
-    markets: buildMarkets(sortedEvents.length ? sortedEvents : base.events),
-    watchZones: buildWatchZones(sortedEvents.length ? sortedEvents : base.events),
-    feed: buildFeed(sortedEvents.length ? sortedEvents : base.events),
-    weatherBands: buildWeatherBands(sortedEvents.length ? sortedEvents : base.events),
+    events: resolvedEvents,
+    hotspots: buildHotspots(resolvedEvents),
+    trending: buildTrending(metrics, resolvedEvents),
+    alerts: buildAlerts(resolvedEvents),
+    timeline: buildTimeline(resolvedEvents),
+    satellites: buildSatellites(resolvedEvents),
+    markets: buildMarkets(resolvedEvents),
+    watchZones: buildWatchZones(resolvedEvents),
+    feed: buildFeed(resolvedEvents),
+    weatherBands: buildWeatherBands(resolvedEvents),
   };
 }
 

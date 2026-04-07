@@ -11,6 +11,7 @@ import { useAppTheme } from '../themeContext';
 
 type GlobeScreenProps = {
   snapshot: DashboardSnapshot;
+  regionFilter?: string | null;
   glow: Animated.Value;
   globeSize: number;
   activeLayers: FeedCategory[];
@@ -24,6 +25,7 @@ type GlobeScreenProps = {
 
 export function GlobeScreen({
   snapshot,
+  regionFilter = null,
   glow,
   globeSize,
   activeLayers,
@@ -58,7 +60,11 @@ export function GlobeScreen({
               <Text style={styles.legendBadgeText}>{activeLayers.length} active</Text>
             </View>
           </View>
-          <Text style={styles.heroMeta}>Live feeds: earthquakes, flights, weather, markets, satellites</Text>
+          <Text style={styles.heroMeta}>
+            {regionFilter
+              ? `Filtered to ${regionFilter}. Layers now show region-linked nodes only.`
+              : 'Live feeds: earthquakes, flights, weather, markets, satellites'}
+          </Text>
         </View>
       </StaggeredItem>
 

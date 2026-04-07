@@ -69,6 +69,61 @@ export function ReplayBars({ frames }: { frames: ReplayFrame[] }) {
   );
 }
 
+export function HistoryTrendChart({
+  points,
+  secondaryLabel,
+}: {
+  points: Array<{ label: string; value: number; secondaryValue?: number }>;
+  secondaryLabel?: string;
+}) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
+  const maxValue = Math.max(
+    ...points.flatMap((point) => [point.value, point.secondaryValue ?? 0]),
+    1
+  );
+
+  return (
+    <View style={styles.historyChart}>
+      <View style={styles.historyRow}>
+        <View style={styles.gridLines}>
+          <View style={styles.gridLine} />
+          <View style={styles.gridLine} />
+          <View style={styles.gridLine} />
+        </View>
+        {points.map((point) => (
+          <View key={point.label} style={styles.historyColumn}>
+            <View style={styles.historyTrack}>
+              {point.secondaryValue != null ? (
+                <View
+                  style={[
+                    styles.historyFillSecondary,
+                    {
+                      height: `${Math.max((point.secondaryValue / maxValue) * 100, 8)}%`,
+                    },
+                  ]}
+                />
+              ) : null}
+              <View
+                style={[
+                  styles.historyFillPrimary,
+                  {
+                    height: `${Math.max((point.value / maxValue) * 100, 8)}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.chartLabel}>{point.label}</Text>
+          </View>
+        ))}
+      </View>
+      {secondaryLabel ? (
+        <Text style={styles.historyLegend}>Primary vs {secondaryLabel}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
   StyleSheet.create({
     chartWrap: {
@@ -149,5 +204,57 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
       color: theme.subtleText,
       fontSize: typeScale.micro,
       textTransform: 'uppercase',
+    },
+    historyChart: {
+      position: 'relative',
+      gap: spacing.sm,
+    },
+    historyRow: {
+      position: 'relative',
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      height: 188,
+      paddingTop: spacing.sm,
+    },
+    historyColumn: {
+      flex: 1,
+      alignItems: 'center',
+      gap: spacing.xs,
+      zIndex: 1,
+    },
+    historyTrack: {
+      width: '100%',
+      height: 156,
+      borderRadius: radii.pill,
+      backgroundColor: theme.surfaceSoft,
+      justifyContent: 'flex-end',
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      overflow: 'hidden',
+      gap: 4,
+      paddingHorizontal: 4,
+      paddingBottom: 4,
+    },
+    historyFillPrimary: {
+      flex: 1,
+      borderRadius: radii.pill,
+      backgroundColor: theme.accent,
+      minHeight: 8,
+    },
+    historyFillSecondary: {
+      flex: 1,
+      borderRadius: radii.pill,
+      backgroundColor: colors.mint,
+      minHeight: 8,
+      opacity: 0.8,
+    },
+    historyLegend: {
+      color: theme.subtleText,
+      fontSize: typeScale.micro,
+      textAlign: 'right',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
     },
   });
