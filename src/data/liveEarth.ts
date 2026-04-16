@@ -89,7 +89,7 @@ export type SatelliteTrack = {
 export type MarketPulse = {
   id: string;
   name: string;
-  region: string;
+  region: string; 
   value: string;
   delta: string;
   tone: Tone;
