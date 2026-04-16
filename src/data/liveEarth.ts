@@ -101,7 +101,7 @@ export type WatchZone = {
   id: string;
   name: string;
   risk: string;
-  detail: string;
+  detail: string; 
   tone: Tone;
   category: FeedCategory;
   eventId: string;
