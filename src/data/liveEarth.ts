@@ -13,7 +13,7 @@ export type SeverityFilter = 'all' | 'critical' | 'elevated' | 'normal';
 
 export type Metric = {
   id: string;
-  label: string;
+  label: string; 
   category: FeedCategory;
   value: string;
   numericValue: number;
