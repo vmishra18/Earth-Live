@@ -42,7 +42,7 @@ export type Hotspot = {
 export type ActivityPoint = {
   label: string;
   value: number;
-  highlight?: boolean;
+  highlight?: boolean; 
 };
 
 export type Trend = {
